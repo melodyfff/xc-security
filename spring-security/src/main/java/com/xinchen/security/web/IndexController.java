@@ -1,5 +1,7 @@
 package com.xinchen.security.web;
 
+import com.xinchen.security.core.vo.Response;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -11,17 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class IndexController {
     @GetMapping("/")
-    public String hello(){
-        return "hello";
-    }
-
-    @GetMapping("/success")
-    public String loginSuccess(){
-        return "login Success!";
-    }
-
-    @GetMapping("/out")
-    public String loginOut(){
-        return "login out!";
+    public ResponseEntity hello(){
+        return ResponseEntity.ok(new Response("hello"));
     }
 }

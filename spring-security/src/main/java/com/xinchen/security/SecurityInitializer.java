@@ -1,42 +1,45 @@
 package com.xinchen.security;
 
 
-import com.xinchen.security.config.WebMvcConfig;
-import com.xinchen.security.config.WebSecurityConfig;
 import org.springframework.security.web.context.AbstractSecurityWebApplicationInitializer;
+import org.springframework.web.SpringServletContainerInitializer;
+import org.springframework.web.WebApplicationInitializer;
+import org.springframework.web.filter.DelegatingFilterProxy;
 
+import javax.servlet.Filter;
 import javax.servlet.ServletContext;
+import java.util.Set;
+
 
 /**
+ *
+ * security 环境加载
+ *
+ * 在其他的 {@link Filter} 注册之前,提前注册{@link DelegatingFilterProxy} 默认名字为: springSecurityFilterChain
+ *
+ * 对于多个实现了{@link WebApplicationInitializer} 接口的环境初始化,
+ *
+ * {@link SpringServletContainerInitializer#onStartup(Set, ServletContext)}中会遍历加载配置环境
+ *
+ *
+ * Security filter chain: [
+ *   WebAsyncManagerIntegrationFilter
+ *   SecurityContextPersistenceFilter
+ *   HeaderWriterFilter
+ *   CsrfFilter
+ *   LogoutFilter
+ *   UsernamePasswordAuthenticationFilter
+ *   DefaultLoginPageGeneratingFilter
+ *   DefaultLogoutPageGeneratingFilter
+ *   BasicAuthenticationFilter
+ *   RequestCacheAwareFilter
+ *   SecurityContextHolderAwareRequestFilter
+ *   AnonymousAuthenticationFilter
+ *   SessionManagementFilter
+ *   ExceptionTranslationFilter
+ *   FilterSecurityInterceptor
+ * ]
+ *
  */
 public class SecurityInitializer  extends AbstractSecurityWebApplicationInitializer {
-    protected SecurityInitializer() {
-        super(WebSecurityConfig.class,WebMvcConfig.class);
-    }
-    //    @Override
-//    protected Class<?>[] getRootConfigClasses() {
-//        return new Class[]{WebSecurityConfig.class};
-//    }
-//
-//    @Override
-//    protected Class<?>[] getServletConfigClasses() {
-//        AbstractSecurityWebApplicationInitializer
-//        return new Class[]{WebMvcConfig.class};
-//    }
-//
-//    @Override
-//    protected String[] getServletMappings() {
-//        return new String[]{"/*"};
-//    }
-//
-//    @Override
-//    protected void customizeRegistration(ServletRegistration.Dynamic registration) {
-//        registration.setLoadOnStartup(1);
-//    }
-
-
-    @Override
-    protected void afterSpringSecurityFilterChain(ServletContext servletContext) {
-        super.afterSpringSecurityFilterChain(servletContext);
-    }
 }
