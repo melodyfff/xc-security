@@ -1,7 +1,7 @@
 package com.xinchen.security.core.exception;
 
 import com.alibaba.fastjson.JSON;
-import com.xinchen.security.core.vo.Response;
+import com.xinchen.security.core.vo.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.handler.AbstractHandlerExceptionResolver;
@@ -33,7 +33,7 @@ public class AppHandlerExceptionResolver extends AbstractHandlerExceptionResolve
             response.setContentType("application/json; charset=utf-8");
             try {
                 // 全部转换为json
-                response.getWriter().write(JSON.toJSONString(new Response(ex.getMessage())));
+                response.getWriter().write(JSON.toJSONString(new ErrorResponse(ex.getMessage(),ex)));
             } catch (IOException e) {
                 log.error("",e);
             }
