@@ -21,6 +21,7 @@ import java.util.Set;
  *
  * {@link SpringServletContainerInitializer#onStartup(Set, ServletContext)}中会遍历加载配置环境
  *
+ * spring security的filter排序由{@link org.springframework.security.config.annotation.web.builders.FilterComparator}控制
  *
  * Security filter chain: [
  *   WebAsyncManagerIntegrationFilter
@@ -37,7 +38,7 @@ import java.util.Set;
  *   AnonymousAuthenticationFilter
  *   SessionManagementFilter
  *   ExceptionTranslationFilter
- *   FilterSecurityInterceptor
+ *   FilterSecurityInterceptor   (class FilterSecurityInterceptor extends AbstractSecurityInterceptor implements Filter)
  * ]
  *
  */
