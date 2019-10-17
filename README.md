@@ -1,5 +1,9 @@
 # xc-security
 
+关于`spring-security`的官网文档学习笔记,主要是`第8章 Architecture and Implementation(架构和实现)`内容
+
+参考: https://docs.spring.io/spring-security/site/docs/5.2.1.BUILD-SNAPSHOT/reference/htmlsingle/#overall-architecture
+
 ## Architecture and Implementation(架构与实现)
 应用程序安全性可以归结为或多或少的两个独立问题：身份验证（您是谁）和授权（您可以做什么？）
 
@@ -171,6 +175,110 @@ class SampleAuthenticationManager implements AuthenticationManager{
 - 4.允许进行安全对象调用（假设已授予访问权限）
 - 5.调用返回后如果配置了`AfterInvocationManager`,则调用。一旦调用引发了异常，`AfterInvocationManager`则不会调用。
 
-##### What are Configuration Attributes(配置属性)?
+> 注,关于步骤`2`,可查看`AbstractSecurityInterceptor`中的`this.accessDecisionManager.decide(authenticated, object, attributes);`
 
+##### What are Configuration Attributes(配置属性)?
+可以将`“configuration attribute(配置属性)”`视为一个`String`，它对所有`AbstractSecurityInterceptor`使用的类具有特殊的含义.
+它们由框架内的接口`ConfigAttribute`表示。它们可以是简单的角色名称，也可以具有更复杂的含义，具体取决于`AccessDecisionManager`的具体实现。
+`AbstractSecurityInterceptor`配置了`SecurityMetadataSource`来查找安全对象的属性。通常，此配置将对用户隐藏。
+配置属性将作为安全方法的注释或安全URL的访问属性输入.
+例如，当我们配置`<intercept-url pattern='/secure/**' access='ROLE_A,ROLE_B'/>`，这表示配置属性`ROLE_A`和`ROLE_B`适用于与给定模式匹配的网络请求。
+实际上，使用默认`AccessDecisionManager`配置,这意味着`GrantedAuthority`将允许具有这两个属性之一匹配的任何人访问。
+严格来说，它们只是属性，其解释取决于`AccessDecisionManager`的实现。
+前缀的使用`ROLE_`是一个标记，以指示这些属性是角色，并且应由`Spring Security`的`RoleVoter`消费.
+这仅`AccessDecisionManager`在使用基于投票者的情况下才有意义。
+
+##### RunAsManager
+假设`AccessDecisionManager`决定允许该请求,`AbstractSecurityInterceptor`通常将继续进行该请求。
+但是有可能用户希望用不同的`Authentication`替换处于`SecurityContext`中已经通过`AccessDecisionManager`处理返回的`Authentication`,这个时候可以使用`RunAsManager`.
+当服务层方法(Service layer)需要调用远程系统并显示不同的标识(不同的安全属性等)时,这可能会有有用.
+因为`Spring Security`会自动将安全身份从一台服务器传播到另一台服务器（假设您使用的是正确配置的`RMI`或`HttpInvoker`远程协议客户端）
+
+##### AfterInvocationManager
+当安全对象(secure object)调用和返回,这可能意味着方法调用完成或过滤器链继续进行,`AbstractSecurityInterceptor`最终有机会处理该调用。
+在这个阶段,`AbstractSecurityInterceptor`可以修改返回对象.
+我们可能希望发生这种情况，因为无法在安全对象调用的“途中”做出授权决定。
+由于高度可插拔，因此`AbstractSecurityInterceptor`将控制权传递给`AfterInvocationManager`以便在需要时实际修改对象。
+此类甚至可以完全替换对象，或者引发异常，也可以按照其选择的任何方式对其进行更改。
+调用后检查仅在调用成功的情况下执行。如果发生异常，将跳过其他检查。
+
+**Security interceptors and the "secure object" model**
+![](doc/img/security-interception.png)
+
+##### Extending the Secure Object Model
+只有打算采用全新的拦截和授权请求方式的开发人员才需要直接使用安全对象。
+例如，有可能建立一个新的安全对象以保护对消息系统的呼叫。
+任何需要安全性并且还提供拦截呼叫的方式的东西（例如，围绕建议语义的AOP）都可以成为安全对象。
+话虽如此，大多数Spring应用程序将完全透明地使用当前支持的三种安全对象类型（AOP Alliance `MethodInvocation`，AspectJ `JoinPoint`和Web request `FilterInvocation`）。
+
+---
+
+### Core Services(核心服务)
+现在，我们对`Spring Security`的架构和核心类的高度概括，让我们来仔细看看一个或两个核心接口及其实现的，
+特别是`AuthenticationManager`，`UserDetailsService`和`AccessDecisionManager`。
+
+#### AuthenticationManager，ProviderManager和AuthenticationProvider
 ![](doc/img/authentication.png)
+`AuthenticationManager`只是一个接口，这样实现可以让我们选择，但它是如何在实践中运作？
+如果我们需要检查多个身份验证数据库或不同身份验证服务（例如数据库和LDAP服务器）的组合，该怎么办？
+
+`Spring Security`中的默认实现是`ProviderManager`,而不是处理身份验证请求本身,
+它委托给已配置的`AuthenticationProviders`列表，依次查询每个，以查看其是否可以执行身份验证。
+每个provider都会引发异常或者返回一个完全填充的`Authentication`对象.
+验证身份验证请求的最常见方法是加载相应`UserDetails`的密码，并对照用户输入的密码检查已加载的密码。
+这是`DaoAuthenticationProvider`（见下文）使用的方法。加载的`UserDetails`对象-尤其是`GrantedAuthority`包含的对象-
+当成功认证时,会构建一个完全填充的`Authentication`对象返回,并且存储到`SecurityContext`环境上下文中.
+
+```xml
+<bean id="authenticationManager"
+        class="org.springframework.security.authentication.ProviderManager">
+    <constructor-arg>
+        <list>
+            <!--     这些bean都是AuthenticationProvider的实现类    -->
+            <ref local="daoAuthenticationProvider"/>
+            <ref local="anonymousAuthenticationProvider"/>
+            <ref local="ldapAuthenticationProvider"/>
+        </list>
+    </constructor-arg>
+</bean>
+```
+
+在上面的示例中，我们有三个提供程序。它们按照所示的顺序进行尝试.
+每个提供程序都可以尝试进行身份验证，也可以通过简单地返回来跳过身份验证`null`。
+如果所有实现均返回`null`，`ProviderManager`则将抛出`ProviderNotFoundException`。
+
+诸如Web表单登录处理过滤器之类的身份验证机制,其注入了对`ProviderManager`的引用,并将调用它来处理其身份验证请求。
+你需要的providers有时候可能会被认证机制(authentication mechanisms)调用,而其他时候,它们将取决于特定的身份验证机制(a specific authentication mechanism)。
+例如，`DaoAuthenticationProvider`和`LdapAuthenticationProvider`与提交简单的用户名/密码身份验证请求的任何机制都兼容,因此,通常和基于表单的登录认证或HTTP Basic身份验证一起使用.
+另一方面，某些身份验证机制会创建一个身份验证请求对象，该对象只能由一种类型的`AuthenticationProvider`。
+一个示例就是`JA-SIG CAS`，它使用服务票证的概念，因此只能由进行身份验证`CasAuthenticationProvider`。
+
+##### Erasing Credentials on Successful Authentication
+默认情况下（从Spring Security 3.1开始），`ProviderManager`它将尝试从`Authentication`成功的身份验证请求返回的对象中清除所有敏感的凭据信息。这样可以防止将密码之类的信息保留的时间过长。
+
+例如，在使用用户对象的缓存来提高无状态应用程序的性能时，这可能会导致问题。
+如果`Authentication`包含对缓存中某个对象（例如`UserDetails`实例）的引用，并且已删除其凭据，则将无法再针对缓存的值进行身份验证.
+如果使用缓存，则需要考虑到这一点。
+一个明显的解决方案是先在高速缓存实现中,或在`AuthenticationProvider`创建返回`Authentication`的对象中,首先创建对象的副本。
+或者，您可以在`ProviderManager`禁用该`eraseCredentialsAfterAuthentication`属性。
+
+##### DaoAuthenticationProvider
+`Spring Security`中最简单的`AuthenticationProvider`实现方法是`DaoAuthenticationProvider`.也是框架最早支持的方法之一。
+它利用`UserDetailsService`（作为DAO）查找用户名，密码和`GrantedAuthority`
+只需将比较`UsernamePasswordAuthenticationToken`提交的密码与`UserDetailsService`加载的密码，即可对用户进行身份验证
+
+```xml
+<beans>
+<bean id="daoAuthenticationProvider"
+    class="org.springframework.security.authentication.dao.DaoAuthenticationProvider">
+<property name="userDetailsService" ref="inMemoryDaoImpl"/>
+<property name="passwordEncoder" ref="passwordEncoder"/>
+</bean>
+
+<bean id="inMemoryDaoImpl"
+ class="org.springframework.security.provisioning.InMemoryUserDetailsManager" >
+....
+</bean>
+</beans>
+```
+`PasswordEncoder`是可选的。`PasswordEncoder`提供对`UserDetails`从配置的返回的对象中提供的密码进行编码和解码`UserDetailsService`。
