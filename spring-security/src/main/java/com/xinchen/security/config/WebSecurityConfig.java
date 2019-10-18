@@ -1,14 +1,16 @@
 package com.xinchen.security.config;
 
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+
+import java.io.IOException;
+import java.util.Properties;
 
 /**
  * @author xinchen
@@ -34,12 +36,29 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     @Bean
     public UserDetailsService userDetailsService(){
-        UserDetails user = User.builder().username("hello")
-                .password("hello")
-                .roles("USER")
-                .passwordEncoder((password)-> passwordEncoder().encode(password))
-                .build();
-        return new InMemoryUserDetailsManager(user);
+        Properties properties = new Properties();
+        try {
+            properties.load(getClass().getClassLoader().getResourceAsStream("user.properties"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        //  UserDetails user = User.builder().username("admin")
+        //          .password("admin")
+        //          .roles("USER")
+        //          .passwordEncoder((password)-> passwordEncoder().encode(password))
+        //          .build();
+        //  new InMemoryUserDetailsManager(user);
+
+        // 加载文件中的用户
+        return new InMemoryUserDetailsManager(properties);
+    }
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        // 建立全局的AuthenticationManagerBuilder
+        // <code>@Autowired public void initialize(AuthenticationManagerBuilder builder, DataSource dataSource) {}</code>
+        // 这里的AuthenticationManagerBuilder只是全局变量的子级
+        auth.userDetailsService(userDetailsService()).passwordEncoder(passwordEncoder());
     }
 
     @Bean

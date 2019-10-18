@@ -282,3 +282,65 @@ class SampleAuthenticationManager implements AuthenticationManager{
 </beans>
 ```
 `PasswordEncoder`是可选的。`PasswordEncoder`提供对`UserDetails`从配置的返回的对象中提供的密码进行编码和解码`UserDetailsService`。
+
+#### UserDetailsService Implementations
+大多数身份验证提供程序都利用`UserDetails`和`UserDetailsService`接口.`UserDetailsService`只是一个简单的方法:
+```java
+UserDetails loadUserByUsername(String username) throws UsernameNotFoundException;
+```
+返回的`UserDetails`是一个接口，该接口提供了获取器，该获取器保证以非空方式提供身份验证信息，例如用户名，密码，已授予的权限以及用户帐户是启用还是禁用。
+大多数身份验证提供程序(providers)会使用`UserDetailsService`,即使用户名和密码实际上没有用作身份验证决策的一部分.
+他们使用`UserDetailsService`作为返回,可能仅仅只是为了获取`GrantedAuthority`信息,因为某些其他系统（例如LDAP或X.509或CAS等）承担了实际验证凭据的责任。
+
+`UserDetailsService`可以很轻松的实现,因此用户应该使用自己选择的持久性策略轻松检索身份验证信息。`Spring Security`包含一些有用的基本实现.
+
+##### In-Memory Authentication
+创建自定义`UserDetailsService`实现,从持久化引擎中提取用户信息很简单,但是许多应用程序不需要这种复杂性.
+如果你正在构建原型或刚刚开始集成`Spring Security`,而又不花时间配置数据库或者自定义一个`UserDetailsService`实现,则可采用下列配置
+```xml
+<user-service id="userDetailsService">
+<!-- Password is prefixed with {noop} to indicate to DelegatingPasswordEncoder that
+NoOpPasswordEncoder should be used. This is not safe for production, but makes reading
+in samples easier. Normally passwords should be hashed using BCrypt -->
+<user name="jimi" password="{noop}jimispassword" authorities="ROLE_USER, ROLE_ADMIN" />
+<user name="bob" password="{noop}bobspassword" authorities="ROLE_USER" />
+</user-service>
+```
+也支持使用外部属性文件：
+```xml
+<user-service id="userDetailsService" properties="users.properties"/>
+```
+属性文件应包含以下形式的条目
+```properties
+username=password,grantedAuthority[,grantedAuthority][,enabled|disabled]
+```
+例如
+```properties
+jimi=jimispassword,ROLE_USER,ROLE_ADMIN,enabled
+bob=bobspassword,ROLE_USER,enabled
+```
+
+##### JdbcDaoImpl
+`Spring Security`还包括一个`UserDetailsService`可从`JDBC`数据源获取身份验证信息的。
+在内部使用`Spring JDBC`，因此它避免了仅用于存储用户详细信息的功能齐全的对象关系映射器（ORM）的复杂性。
+如果您的应用程序确实使用了ORM工具，则您可能更愿意编写一个自定义`UserDetailsService`来重用您可能已经创建的映射文件。
+返回`JdbcDaoImpl`，示例配置如下所示：
+```xml
+<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+<property name="driverClassName" value="org.hsqldb.jdbcDriver"/>
+<property name="url" value="jdbc:hsqldb:hsql://localhost:9001"/>
+<property name="username" value="sa"/>
+<property name="password" value=""/>
+</bean>
+
+<bean id="userDetailsService"
+    class="org.springframework.security.core.userdetails.jdbc.JdbcDaoImpl">
+<property name="dataSource" ref="dataSource"/>
+</bean>
+```
+您可以通过修改`DriverManagerDataSource`上面显示的内容使用不同的关系数据库管理系统。
+您还可以使用从JNDI获得的全局数据源，就像其他任何Spring配置一样。
+
+##### Authority Groups
+默认情况下，`JdbcDaoImpl`假设权限直接映射到用户，则为单个用户加载权限。
+另一种方法是将权限划分为组，然后将组分配给用户。有些人喜欢使用这种方法来管理用户权限。
