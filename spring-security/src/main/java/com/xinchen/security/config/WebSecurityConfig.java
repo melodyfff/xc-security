@@ -13,6 +13,17 @@ import java.io.IOException;
 import java.util.Properties;
 
 /**
+ *
+ *
+ * AuthenticationManagerBuilder 可以注入,因此可以灵活的在filter中使用
+ * <code>
+ *    UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(loginDto.getUsername(), loginDto.getPassword());
+ *
+ *    Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+ *
+ *    SecurityContextHolder.getContext().setAuthentication(authentication);
+ * </code>
+ *
  * @author xinchen
  * @version 1.0
  * @date 14/10/2019 15:20
@@ -58,6 +69,8 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         // 建立全局的AuthenticationManagerBuilder
         // <code>@Autowired public void initialize(AuthenticationManagerBuilder builder, DataSource dataSource) {}</code>
         // 这里的AuthenticationManagerBuilder只是全局变量的子级
+
+
         auth.userDetailsService(userDetailsService()).passwordEncoder(passwordEncoder());
     }
 
